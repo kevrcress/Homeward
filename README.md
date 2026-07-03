@@ -16,7 +16,7 @@ cloud-functions/api/sort.js   cloud-functions/api/        ▼
                                + web_search server tool)
 ```
 
-- **`src/`** — the React UI (ported unchanged from the original single-file Claude.ai artifact prototype).
+- **`src/`** — the React single-page UI (Vite).
 - **`cloud-functions/api/`** — EdgeOne Cloud Functions (Node 20). Both LLM calls run here with the API key from a project environment variable — no key ever reaches the browser. `edgeone.json` raises `maxDuration` to 120s because the web-search call legitimately takes 30–60s.
 - **Contact-list persistence** — `localStorage` is the source of truth, so the saved shortlist survives a reload with no backend at all. `edge-functions/api/contacts.js` (EdgeOne Edge Function + KV, keyed by an anonymous per-browser token) is layered on as **best-effort cross-device sync**: the app calls it, but silently no-ops if the KV namespace isn't bound, so nothing breaks without it.
 
@@ -79,18 +79,17 @@ Notes:
 | `POST /api/find-places` | Cloud Function (Node 20) | Web-search for nearby orgs accepting the donate items; DV address scrubbing |
 | `GET/POST /api/contacts` | Edge Function + KV | Optional cross-device sync of the shortlist; localStorage is the primary store |
 
-## What changed from the prototype (demo / slide notes)
+## Design notes
 
-- **API key moved server-side.** The prototype called `api.anthropic.com` from the browser (only worked in the Claude.ai artifact sandbox). Both calls now run in EdgeOne Cloud Functions; the key is an EdgeOne project env var read from `context.env` — nothing secret ships to the client.
-- **Web search kept on Anthropic's server tool, upgraded.** EdgeOne Makers' agent sandbox tools (browser automation, shell, code exec) don't include a general web-search tool for this pattern, and EdgeOne's own docs show model calls from functions as the idiomatic web-app path. The tool version was upgraded from `web_search_20250305` to `web_search_20260209` (dynamic filtering — filters results before they hit context) with `max_uses: 5`, plus `pause_turn` continuation handling.
-- **DV safety rule is now server-enforced, twice.** Prompt rule + regex address scrubber in `find-places.js`. In the prototype a modified client could skip it; now it can't.
-- **Contact list persists.** `localStorage` is the source of truth (survives reload with no backend); an EdgeOne KV edge function is layered on as best-effort cross-device sync, keyed by an anonymous per-browser token. Saved places now store the full record (contact, items, notes, source) instead of just names, so the list renders after reload — it also shows on the home screen. This two-tier design means persistence degrades gracefully: it works instantly on localStorage today, and lights up KV sync automatically the moment the namespace is bound.
-- **Destination options refined.** The prototype's single "General / homeless services" option was split into distinct "General" and "Homeless shelter/services" choices, so the destination-aware sorting and search prompts can target each audience more precisely. Rebranded the header from "Give Well" to "Homeward".
-- **Hardened parsing.** The prototype regex-stripped markdown fences and trusted `JSON.parse`; the server now extracts the outermost JSON array, validates shape/categories, and caps result counts. Input validation (item counts, string lengths) on every endpoint.
-- **Timeout headroom.** `edgeone.json` sets `cloudFunctions.nodejs.maxDuration: 120` (default is 30s — the search call would time out).
-- **UI unchanged** except: the saved contact list card also renders on the home screen (persistence has to be visible), and location is required before searching (the prototype would happily search "near ''").
+- **API key stays server-side.** Both LLM calls run in EdgeOne Cloud Functions with the key read from `context.env` — nothing secret ships to the client.
+- **Live web search via Anthropic's server tool.** The place-finding call uses the `web_search_20260209` server tool (dynamic filtering — results are filtered before they hit context) with `max_uses: 5`, plus `pause_turn` continuation handling for multi-round searches.
+- **DV safety rule is server-enforced, in two layers.** A prompt rule plus a regex address scrubber in `find-places.js`. Because it runs server-side, no client modification can bypass it.
+- **Persistence degrades gracefully.** `localStorage` is the source of truth, so the saved shortlist survives a reload with no backend; an EdgeOne KV edge function is layered on as best-effort cross-device sync (anonymous per-browser token). Saved places store the full record (contact, items, notes, source) and render on both the results and home screens. KV sync lights up automatically the moment the namespace is bound — until then, localStorage carries it.
+- **Destination-aware sorting.** Distinct "General", "Homeless shelter/services", "Domestic violence shelter", "Pet rescue", and "Refugee resettlement" options let the sorting and search prompts target each audience's real constraints (e.g. shelters can't take used mattresses; DV/refugee programs prefer new/unopened toiletries).
+- **Hardened parsing & validation.** The server extracts the outermost JSON array from model output (tolerating stray fences/preamble), validates shape and categories, caps result counts, and validates input (item counts, string lengths) on every endpoint.
+- **Timeout headroom.** `edgeone.json` sets `cloudFunctions.nodejs.maxDuration: 120` (default 30s — the search call would otherwise time out).
 
-### Known fragilities (worth saying in the demo)
+### Known fragilities
 
 - The sorter echoes item names back and `acceptsItems` matches on exact names — if the model paraphrases an item, its chip won't match the sorted card. Low-stakes (display only), but a name-normalization pass would fix it.
 - Place results come from live web search — quality varies by location; small towns may return regional orgs.
