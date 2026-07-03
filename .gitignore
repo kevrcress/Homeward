@@ -5,3 +5,9 @@ dist/
 .env.*
 .DS_Store
 *.local
+
+# Tencent Cloud EdgeOne
+.env
+.edgeone/*
+.tef_dist/*
+  

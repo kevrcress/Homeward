@@ -13,7 +13,8 @@ import Anthropic from "@anthropic-ai/sdk";
 const MODEL_FALLBACK = "claude-sonnet-4-6";
 
 const DEST_LABELS = {
-  general: "General / homeless services",
+  general: "General",
+  homeless: "Homeless shelter/services",
   dv: "Domestic violence shelter",
   pet: "Pet rescue or shelter",
   refugee: "Refugee resettlement",

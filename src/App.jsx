@@ -22,7 +22,8 @@ const CATEGORY_STYLES = {
 };
 
 const DESTINATIONS = [
-  { id: "general", label: "General / homeless services" },
+  { id: "general", label: "General" },
+  { id: "homeless", label: "Homeless shelter/services" },
   { id: "dv", label: "Domestic violence shelter" },
   { id: "pet", label: "Pet rescue or shelter" },
   { id: "refugee", label: "Refugee resettlement" },
@@ -71,11 +72,22 @@ export default function DonationFinder() {
   const [contactList, setContactList] = useState([]); // saved place objects, persisted in KV
   const [error, setError] = useState(null);
 
-  // Restore the saved contact list on load.
+  // Restore the saved contact list on load. localStorage is the source of
+  // truth (survives reload with no backend); the KV endpoint is best-effort
+  // cross-device sync and no-ops cleanly if the namespace isn't bound yet.
   useEffect(() => {
+    try {
+      const local = JSON.parse(localStorage.getItem("homeward-contacts") || "[]");
+      if (Array.isArray(local) && local.length) setContactList(local);
+    } catch {}
     fetch(`/api/contacts?list=${getListId()}`)
       .then((r) => (r.ok ? r.json() : { contacts: [] }))
-      .then((data) => setContactList(Array.isArray(data.contacts) ? data.contacts : []))
+      .then((data) => {
+        if (Array.isArray(data.contacts) && data.contacts.length) {
+          setContactList(data.contacts);
+          localStorage.setItem("homeward-contacts", JSON.stringify(data.contacts));
+        }
+      })
       .catch(() => {});
   }, []);
 
@@ -137,7 +149,8 @@ export default function DonationFinder() {
 
   function persistContacts(next) {
     setContactList(next);
-    postJSON("/api/contacts", { listId: getListId(), contacts: next }).catch(() => {});
+    localStorage.setItem("homeward-contacts", JSON.stringify(next)); // survives reload, no backend
+    postJSON("/api/contacts", { listId: getListId(), contacts: next }).catch(() => {}); // best-effort KV sync
   }
 
   function toggleContact(place) {
@@ -204,7 +217,7 @@ export default function DonationFinder() {
                 fontWeight: 600,
               }}
             >
-              Give Well
+              Homeward
             </span>
           </div>
           <h1 style={{ fontSize: 34, lineHeight: 1.15, margin: 0, color: "#2A2622" }}>
