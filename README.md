@@ -16,7 +16,7 @@ cloud-functions/api/sort.js   cloud-functions/api/           edge-functions/api/
                                + web_search server tool)
 ```
 
-- **`src/`** — the React UI (ported unchanged from the prototype, `donation-finder-v3.jsx`).
+- **`src/`** — the React UI (ported unchanged from the original single-file Claude.ai artifact prototype).
 - **`cloud-functions/api/`** — EdgeOne Cloud Functions (Node 20). Both LLM calls run here with the API key from a project environment variable — no key ever reaches the browser. `edgeone.json` raises `maxDuration` to 120s because the web-search call legitimately takes 30–60s.
 - **`edge-functions/api/contacts.js`** — EdgeOne Edge Function backed by EdgeOne KV (KV is only accessible from edge functions). The saved contact list survives reloads, keyed by an anonymous per-browser token in localStorage.
 
@@ -92,7 +92,3 @@ Notes:
 - The sorter echoes item names back and `acceptsItems` matches on exact names — if the model paraphrases an item, its chip won't match the sorted card. Low-stakes (display only), but a name-normalization pass would fix it.
 - Place results come from live web search — quality varies by location; small towns may return regional orgs.
 - The contact list is per-browser (localStorage token), not per-account.
-
-## Prototype
-
-The original single-file Claude.ai artifact is kept as [`donation-finder-v3.jsx`](donation-finder-v3.jsx) for reference.
